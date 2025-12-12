@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Animal Recognizer</title>
+    <style>
+        :root {
+            --primary-color: #6366f1;
+            --bg-color: #f8fafc;
+            --card-bg: #ffffff;
+            --text-color: #1e293b;
+            --accent-color: #cbd5e1;
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            background-color: var(--card-bg);
+            width: 100%;
+            max-width: 450px;
+            padding: 2rem;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            transition: transform 0.3s ease;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+            color: var(--primary-color);
+        }
+
+        p {
+            color: #64748b;
+            font-size: 0.9rem;
+            margin-bottom: 1.5rem;
+        }
+
+        /* Upload Button Styling */
+        .upload-btn-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+            margin-bottom: 1.5rem;
+        }
+
+        .btn {
+            border: 2px dashed var(--primary-color);
+            color: var(--primary-color);
+            background-color: #eef2ff;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn:hover {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .upload-btn-wrapper input[type=file] {
+            font-size: 100px;
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+            cursor: pointer;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Image Preview */
+        #image-preview {
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: 12px;
+            display: none; /* Hidden by default */
+            margin: 0 auto 1.5rem auto;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Results Area */
+        #result-container {
+            display: none;
+            text-align: left;
+            background: #f1f5f9;
+            padding: 1rem;
+            border-radius: 12px;
+        }
+
+        .prediction-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+            font-size: 0.95rem;
+        }
+
+        .prediction-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .label {
+            font-weight: 600;
+            text-transform: capitalize;
+        }
+
+        .confidence {
+            color: var(--primary-color);
+            font-weight: 700;
+        }
+
+        /* Loading Spinner */
+        .loader {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid var(--primary-color);
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin-right: 10px;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        #status {
+            font-size: 0.85rem;
+            color: #94a3b8;
+            margin-bottom: 1rem;
+            min-height: 24px; /* Prevent layout shift */
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🐾 Animal Identifier</h1>
+    <p>Upload an image to identify the animal</p>
+
+    <div id="status">
+        <div class="loader"></div> Loading AI Model...
+    </div>
+
+    <div class="upload-btn-wrapper" id="upload-wrapper" style="opacity: 0.5; pointer-events: none;">
+        <button class="btn">Upload Image</button>
+        <input type="file" id="image-upload" accept="image/*" />
+    </div>
+
+    <img id="image-preview" alt="Image Preview" />
+
+    <div id="result-container">
+        </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@1.0.0"></script>
+
+<script>
+    const imageUpload = document.getElementById('image-upload');
+    const imagePreview = document.getElementById('image-preview');
+    const resultContainer = document.getElementById('result-container');
+    const statusDiv = document.getElementById('status');
+    const uploadWrapper = document.getElementById('upload-wrapper');
+    let net;
+
+    // 1. Load the Model
+    async function loadModel() {
+        try {
+            // Load MobileNet (lightweight & fast)
+            net = await mobilenet.load();
+            
+            // Update UI once loaded
+            statusDiv.innerHTML = "✅ Model Loaded. Ready to analyze.";
+            uploadWrapper.style.opacity = "1";
+            uploadWrapper.style.pointerEvents = "auto";
+        } catch (error) {
+            statusDiv.innerHTML = "❌ Error loading model. Please refresh.";
+            console.error(error);
+        }
+    }
+
+    loadModel();
+
+    // 2. Handle Image Upload
+    imageUpload.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            imagePreview.src = event.target.result;
+            imagePreview.style.display = 'block';
+            resultContainer.style.display = 'none';
+            statusDiv.innerHTML = '<div class="loader"></div> Analyzing...';
+            
+            // Allow image to render before predicting
+            setTimeout(predictImage, 100);
+        }
+        reader.readAsDataURL(file);
+    });
+
+    // 3. Predict
+    async function predictImage() {
+        if (!net) return;
+
+        try {
+            // Classify the image
+            const results = await net.classify(imagePreview);
+            
+            displayResults(results);
+            statusDiv.innerHTML = "✅ Analysis Complete";
+        } catch (error) {
+            statusDiv.innerHTML = "❌ Error analyzing image.";
+            console.error(error);
+        }
+    }
+
+    // 4. Display Results
+    function displayResults(results) {
+        resultContainer.innerHTML = ''; // Clear previous
+        
+        results.forEach(prediction => {
+            const row = document.createElement('div');
+            row.className = 'prediction-row';
+            
+            // Convert probability to percentage
+            const percentage = (prediction.probability * 100).toFixed(1) + '%';
+            
+            row.innerHTML = `
+                <span class="label">${prediction.className}</span>
+                <span class="confidence">${percentage}</span>
+            `;
+            resultContainer.appendChild(row);
+        });
+
+        resultContainer.style.display = 'block';
+    }
+</script>
+
+</body>
+</html>
